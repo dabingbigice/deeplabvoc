@@ -29,14 +29,14 @@ class DeeplabDataset(Dataset):
         #-------------------------------#
         #   从文件中读取图像
         #-------------------------------#
-        jpg_png         = Image.open(os.path.join(os.path.join(self.dataset_path, "VOC2007/JPEGImages"), name + ".png"))
+        jpg         = Image.open(os.path.join(os.path.join(self.dataset_path, "VOC2007/JPEGImages"), name + ".jpg"))
         png         = Image.open(os.path.join(os.path.join(self.dataset_path, "VOC2007/SegmentationClass"), name + ".png"))
         #-------------------------------#
         #   数据增强
         #-------------------------------#
-        jpg_png, png    = self.get_random_data(jpg_png, png, self.input_shape, random = self.train)
+        jpg, png    = self.get_random_data(jpg, png, self.input_shape, random = self.train)
 
-        jpg_png         = np.transpose(preprocess_input(np.array(jpg_png, np.float64)), [2,0,1])
+        jpg         = np.transpose(preprocess_input(np.array(jpg, np.float64)), [2,0,1])
         png         = np.array(png)
         png[png >= self.num_classes] = self.num_classes
         #-------------------------------------------------------#
@@ -47,7 +47,7 @@ class DeeplabDataset(Dataset):
         seg_labels  = np.eye(self.num_classes + 1)[png.reshape([-1])]
         seg_labels  = seg_labels.reshape((int(self.input_shape[0]), int(self.input_shape[1]), self.num_classes + 1))
 
-        return jpg_png, png, seg_labels
+        return jpg, png, seg_labels
 
     def rand(self, a=0, b=1):
         return np.random.rand() * (b - a) + a
