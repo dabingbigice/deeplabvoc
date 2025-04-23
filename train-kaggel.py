@@ -225,7 +225,7 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     #   VOCdevkit_path  数据集路径
     #------------------------------------------------------------------#
-    VOCdevkit_path  = '/kaggle/input/voctrainval-11-may-2012/VOCdevkit'
+    VOCdevkit_path  = '/kaggle/input/voctrainval-11-may-2012/VOCtrainval_11-May-2012/VOCdevkit'
     #------------------------------------------------------------------#
     #   建议选项：
     #   种类少（几类）时，设置为True
