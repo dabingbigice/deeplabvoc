@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from nets.xception import xception
 from nets.mobilenetv2 import mobilenetv2
-
+import math
 
 class SwinTransformer_Encoder(nn.Module):
     def __init__(self, pretrained=False, model_name='swin_tiny_patch4_window7_224'):
