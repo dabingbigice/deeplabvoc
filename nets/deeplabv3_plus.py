@@ -9,6 +9,98 @@ import timm
 from timm.models.swin_transformer import SwinTransformer
 from nets.deeplab_startnet import StarNet
 
+import torch
+import torch.nn as nn
+from mmseg.models.backbones import MixVisionTransformer  # 需安装mmsegmentation库
+
+import torch
+import torch.nn as nn
+from torchvision.models.convnext import convnext_base, ConvNeXt_Base_Weights
+
+
+class ConvNeXt(nn.Module):
+    def __init__(self, downsample_factor=16, pretrained=False):
+        super().__init__()
+        # 初始化ConvNeXt基础模型（可选择tiny/small/base/large）
+        model = convnext_base(weights=ConvNeXt_Base_Weights.IMAGENET1K_V1 if pretrained else None)
+
+        # 提取特征阶段（基于ConvNeXt的四阶段结构）
+        self.stage1 = nn.Sequential(
+            model.features[0],  # 4x4卷积下采样
+            model.features[1].block[0],  # Stage1的倒置瓶颈模块
+            model.features[1].block[1]
+        )
+
+        self.stage2 = model.features[2]  # Stage2（1/8分辨率）
+        self.stage3 = model.features[3]  # Stage3（1/16分辨率）
+        self.stage4 = model.features[4]  # Stage4（1/32分辨率）
+
+        # 通道调整模块（适配ASPP输入）
+        self.adjust_low = nn.Sequential(
+            nn.Conv2d(128, 48, 1),  # Stage1输出通道调整
+            nn.GroupNorm(16, 48),  # 使用GN代替BN[5](@ref)
+            nn.GELU()
+        )
+        self.adjust_high = nn.Sequential(
+            nn.Conv2d(768, 256, 1),  # Stage4输出通道调整
+            nn.LayerNorm([256, 32, 32]),  # ConvNeXt特性[5](@ref)
+            nn.Dropout(0.2)
+        )
+
+        # 空洞空间金字塔参数配置
+
+    def forward(self, x):
+        # 四阶段特征提取（仅保留关键层次）
+        s1 = self.stage1(x)  # 1/4分辨率 (B, 128, H/4, W/4)
+        s2 = self.stage2(s1)  # 1/8分辨率
+        s3 = self.stage3(s2)  # 1/16分辨率（带空洞卷积）
+        s4 = self.stage4(s3)  # 1/32分辨率（带空洞卷积）
+
+        # 通道数调整与特征选择
+        low_level = self.adjust_low(s1)
+        high_level = self.adjust_high(s4)
+        return low_level, high_level  # 输出用于ASPP的特征对
+
+
+class SegFormer(nn.Module):
+    def __init__(self, model_name='segformer-b2', pretrained=False):
+        super().__init__()
+        # 初始化SegFormer主干网络
+        self.backbone = MixVisionTransformer(
+            embed_dims=[64, 128, 320, 512],  # B2模型配置
+            num_heads=[1, 2, 5, 8],
+            mlp_ratios=[4, 4, 4, 4],
+            drop_path_rate=0.1,
+            pretrained=False
+        )
+
+        # 通道适配模块（关键设计点）
+        self.adjust_low = nn.Sequential(
+            nn.Conv2d(128, 48, 1),  # Stage1输出通道适配[4,9](@ref)
+            nn.BatchNorm2d(48),
+            nn.ReLU(inplace=True)
+        )
+
+        self.adjust_high = nn.Sequential(
+            nn.Conv2d(512, 256, 1),  # Stage4输出通道适配[6,9](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        # 获取四阶段特征
+        features = self.backbone(x)  # 输出格式为(List[Tensor])
+
+        # 选择Stage1和Stage4特征（关键步骤）
+        low_level_feat = features[1]  # 1/4分辨率特征[9](@ref)
+        high_level_feat = features[-1]  # 1/16分辨率特征
+
+        # 通道数调整
+        return self.adjust_low(low_level_feat), self.adjust_high(high_level_feat)
+
+
+
+
 class SwinTransformer_Encoder(nn.Module):
     def __init__(self, pretrained=False, model_name='swin_tiny_patch4_window7_224'):
         super().__init__()
@@ -518,6 +610,14 @@ class DeepLab(nn.Module):
             low_level_channels = 12  # 对应stage1输出通道
         elif backbone == "swintransformer":
             self.backbone = SwinTransformer_Encoder()
+            in_channels = 96  # 对应stage4输出通道
+            low_level_channels = 12  # 对应stage1输出通道
+        elif backbone == "convnext":
+            self.backbone = ConvNeXt()
+            in_channels = 96  # 对应stage4输出通道
+            low_level_channels = 12  # 对应stage1输出通道
+        elif backbone == "segformer":
+            self.backbone = SegFormer()
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         else:
