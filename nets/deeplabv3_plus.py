@@ -15,7 +15,7 @@ class SwinTransformer_Encoder(nn.Module):
 
         # 加载预训练Swin Transformer主干 [1,6](@ref)
         self.model = SwinTransformer(
-            img_size=512,
+            img_size=256,
             patch_size=4,
             in_chans=3,
             embed_dim=96,
