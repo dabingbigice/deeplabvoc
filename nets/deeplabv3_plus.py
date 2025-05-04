@@ -475,7 +475,7 @@ class DeepLab(nn.Module):
             #   浅层特征    [128,128,24]
             #   主干部分    [30,30,320]
             # ----------------------------------#
-
+            self.backbone = MobileNetV2(downsample_factor=downsample_factor, pretrained=pretrained)
             in_channels = 96
             low_level_channels = 12
         elif backbone == "shufllenent":
