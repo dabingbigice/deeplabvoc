@@ -37,12 +37,9 @@ class ConvNeXt(nn.Module):
         # 通道适配模块（关键设计点）
         self.adjust_low = nn.Sequential(
             nn.Conv2d(128, 12, 1),  # Stage1输出通道调整
-            nn.GELU()
         )
         self.adjust_high = nn.Sequential(
             nn.Conv2d(512, 96, 1),  # Stage4输出通道调整
-            nn.LayerNorm([256, 32, 32]),  # 保持ConvNeXt特性
-            nn.Dropout(0.2)
         )
 
     def forward(self, x):
