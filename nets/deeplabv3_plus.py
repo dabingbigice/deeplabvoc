@@ -5,6 +5,8 @@ from nets.xception import xception
 from nets.mobilenetv2 import mobilenetv2
 import math
 from torchvision.models import resnext50_32x4d
+import timm
+from timm.models.swin_transformer import SwinTransformer
 
 class SwinTransformer_Encoder(nn.Module):
     def __init__(self, pretrained=False, model_name='swin_tiny_patch4_window7_224'):
