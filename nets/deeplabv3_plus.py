@@ -11,7 +11,6 @@ from nets.deeplab_startnet import StarNet
 
 import torch
 import torch.nn as nn
-from mmseg.models.backbones import MixVisionTransformer  # 需安装mmsegmentation库
 
 
 
@@ -57,53 +56,6 @@ class ConvNeXt(nn.Module):
         # 通道调整与特征选择
         return self.adjust_low(s1), self.adjust_high(s4)
 
-
-import torch
-import torch.nn as nn
-from timm.models.vision_transformer import VisionTransformer
-
-
-
-class TimmViTBackbone(nn.Module):
-    def __init__(self, model_name='vit_base_patch16_224', pretrained=True):
-        super().__init__()
-        # 初始化timm库中的ViT模型
-        self.vit = VisionTransformer(
-            img_size=512,  # 输入尺寸需与下游任务对齐
-            patch_size=16,
-            in_chans=3,
-            embed_dim=768,
-            depth=12,
-            num_heads=12,
-            pretrained=pretrained
-        )
-
-        # 特征通道适配模块
-        self.adjust_low = nn.Sequential(
-            nn.Conv2d(768, 256, 3, padding=1),  # 将CLS Token扩展为空间特征
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True)
-        )
-        self.adjust_high = nn.Sequential(
-            nn.Conv2d(768, 512, 1),
-            nn.LayerNorm(512),
-            nn.GELU()
-        )
-
-    def forward(self, x):
-        # 获取ViT的多层特征
-        x = self.vit.patch_embed(x)  # [B, 196, 768] (14x14网格)
-        cls_token = self.vit.cls_token.expand(x.shape[0], -1, -1)
-        x = torch.cat((cls_token, x), dim=1)
-        x = self.vit.blocks(x)
-
-        # 重构为空间特征图
-        b, _, c = x.shape
-        h = w = int((x.shape[1] - 1) ** 0.5)
-        spatial_feat = x[:, 1:].view(b, h, w, c).permute(0, 3, 1, 2)
-
-        # 通道调整
-        return self.adjust_low(spatial_feat), self.adjust_high(spatial_feat)
 
 
 class SwinTransformer_Encoder(nn.Module):
