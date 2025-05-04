@@ -74,7 +74,6 @@ class Res2Net_Encoder(nn.Module):
             features_only=False,
             num_classes=0  # 禁用分类头
         )
-        print(self.model)
         # 分解模型结构 [7](@ref)
         self.stem = nn.Sequential(
             self.model.conv1,  # 初始7x7卷积 (输出64通道)
