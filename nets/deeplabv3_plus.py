@@ -25,14 +25,14 @@ class ConvNeXt(nn.Module):
         # 初始化ConvNeXt基础模型（基于torchvision官方实现）
         model = convnext_base(weights=ConvNeXt_Base_Weights.IMAGENET1K_V1 if pretrained else None)
 
-        # 特征阶段划分（基于ConvNeXt的四阶段结构）
+        # 修正特征阶段划分方式
         self.stage1 = nn.Sequential(
             model.features[0],  # 初始4x4卷积下采样
-            *model.features[1].block[:2]  # 提取Stage1特征
+            model.features[1]  # 直接使用完整Stage1特征
         )
-        self.stage2 = model.features[2]  # Stage2（1/8分辨率）
-        self.stage3 = model.features[3]  # Stage3（1/16分辨率）
-        self.stage4 = model.features[4]  # Stage4（1/32分辨率）
+        self.stage2 = model.features[2]
+        self.stage3 = model.features[3]
+        self.stage4 = model.features[4]
 
         # 通道适配模块（关键设计点）
         self.adjust_low = nn.Sequential(
