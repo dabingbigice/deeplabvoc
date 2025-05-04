@@ -41,7 +41,7 @@ class ConvNeXt(nn.Module):
             nn.GELU()
         )
         self.adjust_high = nn.Sequential(
-            nn.Conv2d(768, 256, 1),  # Stage4输出通道调整
+            nn.Conv2d(512, 256, 1),  # Stage4输出通道调整
             nn.LayerNorm([256, 32, 32]),  # 保持ConvNeXt特性
             nn.Dropout(0.2)
         )
