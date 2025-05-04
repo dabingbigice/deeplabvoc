@@ -13,9 +13,7 @@ import torch
 import torch.nn as nn
 from mmseg.models.backbones import MixVisionTransformer  # 需安装mmsegmentation库
 
-import torch
-import torch.nn as nn
-from torchvision.models.convnext import convnext_base, ConvNeXt_Base_Weights
+
 
 import torch
 import torch.nn as nn
@@ -60,43 +58,52 @@ class ConvNeXt(nn.Module):
         return self.adjust_low(s1), self.adjust_high(s4)
 
 
-class SegFormer(nn.Module):
-    def __init__(self, model_name='segformer-b2', pretrained=False):
+import torch
+import torch.nn as nn
+from timm.models.vision_transformer import VisionTransformer
+
+
+
+class TimmViTBackbone(nn.Module):
+    def __init__(self, model_name='vit_base_patch16_224', pretrained=True):
         super().__init__()
-        # 初始化SegFormer主干网络
-        self.backbone = MixVisionTransformer(
-            embed_dims=[64, 128, 320, 512],  # B2模型配置
-            num_heads=[1, 2, 5, 8],
-            mlp_ratios=[4, 4, 4, 4],
-            drop_path_rate=0.1,
-            pretrained=False
+        # 初始化timm库中的ViT模型
+        self.vit = VisionTransformer(
+            img_size=512,  # 输入尺寸需与下游任务对齐
+            patch_size=16,
+            in_chans=3,
+            embed_dim=768,
+            depth=12,
+            num_heads=12,
+            pretrained=pretrained
         )
 
-        # 通道适配模块（关键设计点）
+        # 特征通道适配模块
         self.adjust_low = nn.Sequential(
-            nn.Conv2d(128, 48, 1),  # Stage1输出通道适配[4,9](@ref)
-            nn.BatchNorm2d(48),
-            nn.ReLU(inplace=True)
-        )
-
-        self.adjust_high = nn.Sequential(
-            nn.Conv2d(512, 256, 1),  # Stage4输出通道适配[6,9](@ref)
+            nn.Conv2d(768, 256, 3, padding=1),  # 将CLS Token扩展为空间特征
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True)
         )
+        self.adjust_high = nn.Sequential(
+            nn.Conv2d(768, 512, 1),
+            nn.LayerNorm(512),
+            nn.GELU()
+        )
 
     def forward(self, x):
-        # 获取四阶段特征
-        features = self.backbone(x)  # 输出格式为(List[Tensor])
+        # 获取ViT的多层特征
+        x = self.vit.patch_embed(x)  # [B, 196, 768] (14x14网格)
+        cls_token = self.vit.cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_token, x), dim=1)
+        x = self.vit.blocks(x)
 
-        # 选择Stage1和Stage4特征（关键步骤）
-        low_level_feat = features[1]  # 1/4分辨率特征[9](@ref)
-        high_level_feat = features[-1]  # 1/16分辨率特征
+        # 重构为空间特征图
+        b, _, c = x.shape
+        h = w = int((x.shape[1] - 1) ** 0.5)
+        spatial_feat = x[:, 1:].view(b, h, w, c).permute(0, 3, 1, 2)
 
-        # 通道数调整
-        return self.adjust_low(low_level_feat), self.adjust_high(high_level_feat)
-
-
+        # 通道调整
+        return self.adjust_low(spatial_feat), self.adjust_high(spatial_feat)
 
 
 class SwinTransformer_Encoder(nn.Module):
@@ -612,10 +619,6 @@ class DeepLab(nn.Module):
             low_level_channels = 12  # 对应stage1输出通道
         elif backbone == "convnext":
             self.backbone = ConvNeXt()
-            in_channels = 96  # 对应stage4输出通道
-            low_level_channels = 12  # 对应stage1输出通道
-        elif backbone == "segformer":
-            self.backbone = SegFormer()
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         else:
