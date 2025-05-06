@@ -76,20 +76,13 @@ if __name__ == "__main__":
     #-----------------------------------------------------#
     num_classes     = 3
     #---------------------------------#
-    #---------------------------------#
     #   所使用的的主干网络：
-    #   mobilenet *
-    # startnet *
-    # resnet *
-    # ghostnet *
-    # shufllenent*
-    # resnext*
-    # efficientnetbo*
+    #   mobilenet
     #   xception
-    # res2net
-    # SwinTransformer
+    # startnet
+    # ghostnet
     #---------------------------------#
-    backbone        = "startnet"
+    backbone        = "convnext"
     #----------------------------------------------------------------------------------------------------------------------------#
     #   pretrained      是否使用主干网络的预训练权重，此处使用的是主干的权重，因此是在模型构建的时候进行加载的。
     #                   如果设置了model_path，则主干的权值无需加载，pretrained的值无意义。
@@ -184,7 +177,7 @@ if __name__ == "__main__":
     #   Freeze_Train    是否进行冻结训练
     #                   默认先冻结主干训练后解冻训练。
     #------------------------------------------------------------------#
-    Freeze_Train        = True
+    Freeze_Train        = False
 
     #------------------------------------------------------------------#
     #   其它训练参数：学习率、优化器、学习率下降有关
@@ -253,8 +246,8 @@ if __name__ == "__main__":
     #   num_classes = 3
     #   cls_weights = np.array([1, 2, 3], np.float32)
     #------------------------------------------------------------------#
-    cls_weights     = np.ones([num_classes], np.float32)
-    # cls_weights = np.array([1, 4, 2], np.float32)
+    # cls_weights     = np.ones([num_classes], np.float32)
+    cls_weights = np.array([1, 4, 2], np.float32)
     #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据，1代表关闭多线程
     #                   开启后会加快数据读取速度，但是会占用更多内存
